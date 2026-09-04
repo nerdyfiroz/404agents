@@ -14,8 +14,11 @@ export const metadata: Metadata = {
   description:
     "Collect, trade, and unleash 2 222 unique 404‑error‑themed agent bots on the Arc blockchain. Join the whitelist now!",
   icons: {
-    icon: "/favicon.png",
-    apple: "/favicon.png",
+    icon: [
+      { url: "/icon.png", type: "image/png" },
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    apple: "/apple-icon.png",
   },
   openGraph: {
     title: "404Agents – NFT Bot Collection",
