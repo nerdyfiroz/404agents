@@ -2,12 +2,6 @@
 
 import { useState, useEffect } from "react";
 
-interface Task {
-  id: number;
-  description: string;
-  link: string | null;
-}
-
 interface Settings {
   twitter_follow_link: string;
   tweet_engage_link: string;
@@ -27,9 +21,8 @@ export default function WhitelistPage() {
     tweet_engage_link: "",
     whitelist_paused: "false",
   });
-  const [tasks, setTasks] = useState<Task[]>([]);
 
-  // Fetch public settings & tasks on mount without cache
+  // Fetch public settings on mount without cache
   useEffect(() => {
     fetch("/api/settings/public", { cache: "no-store" })
       .then((r) => r.json())
@@ -40,9 +33,6 @@ export default function WhitelistPage() {
           tweet_engage_link: s.tweet_engage_link || "",
           whitelist_paused: s.whitelist_paused || "false",
         });
-        if (Array.isArray(data.tasks)) {
-          setTasks(data.tasks);
-        }
         if (s.whitelist_paused === "true") setStatus("paused");
       })
       .catch(() => {});
@@ -119,8 +109,7 @@ export default function WhitelistPage() {
 
         {/* ── Twitter Follow Task ── */}
         <div className="form-group">
-          <label htmlFor="wl-twitter">Twitter Username *</label>
-          {twitterFollowLink && (
+          {twitterFollowLink ? (
             <a
               href={twitterFollowLink}
               target="_blank"
@@ -129,8 +118,12 @@ export default function WhitelistPage() {
             >
               <span className="task-link-icon">✦</span>
               Follow {twitterHandle || "us"} on X to complete this task
-              <span className="task-link-arrow">↗</span>
             </a>
+          ) : (
+            <div className="task-link" style={{ cursor: "default" }}>
+              <span className="task-link-icon">✦</span>
+              Follow on X to complete this task
+            </div>
           )}
           <input
             id="wl-twitter"
@@ -144,8 +137,7 @@ export default function WhitelistPage() {
 
         {/* ── Like, Retweet & Comment Task ── */}
         <div className="form-group">
-          <label htmlFor="wl-comment">Proof Link *</label>
-          {tweetEngageLink && (
+          {tweetEngageLink ? (
             <a
               href={tweetEngageLink}
               target="_blank"
@@ -154,8 +146,12 @@ export default function WhitelistPage() {
             >
               <span className="task-link-icon">🔥</span>
               Like, Retweet &amp; Comment on this post
-              <span className="task-link-arrow">↗</span>
             </a>
+          ) : (
+            <div className="task-link" style={{ cursor: "default" }}>
+              <span className="task-link-icon">🔥</span>
+              Like, Retweet &amp; Comment on this post
+            </div>
           )}
           <input
             id="wl-comment"
@@ -166,33 +162,6 @@ export default function WhitelistPage() {
             disabled={isPaused}
           />
         </div>
-
-        {/* ── Custom Whitelist Tasks Checklist ── */}
-        {tasks.length > 0 && (
-          <div className="form-group" style={{ background: "rgba(255,255,255,.02)", padding: "1rem", borderRadius: 12, border: "1px solid rgba(255,107,53,.15)" }}>
-            <label style={{ fontSize: "0.9rem", color: "var(--color-accent)", fontWeight: 700 }}>
-              📋 Whitelist Tasks Checklist
-            </label>
-            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginTop: "0.5rem" }}>
-              {tasks.map((t) => (
-                <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--color-primary-light)", padding: "0.6rem 0.8rem", borderRadius: 8 }}>
-                  <span style={{ fontSize: "0.88rem" }}>{t.description}</span>
-                  {t.link && (
-                    <a
-                      href={t.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="task-link"
-                      style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem", marginTop: 0 }}
-                    >
-                      Complete Task ↗
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <button
           type="submit"
