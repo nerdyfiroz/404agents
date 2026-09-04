@@ -61,6 +61,27 @@ export async function POST(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  if (!(await isAuthed())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const { id, description, link } = await req.json();
+    if (!id || !description || typeof description !== "string") {
+      return NextResponse.json({ error: "id and description are required" }, { status: 400 });
+    }
+    const pool = getDbPool();
+    await pool.query(
+      "UPDATE admin_tasks SET description = $1, link = $2 WHERE id = $3",
+      [description.trim(), link ? link.trim() : null, id]
+    );
+    return NextResponse.json({ success: true });
+  } catch {
+    return NextResponse.json({ error: "Bad request" }, { status: 400 });
+  }
+}
+
 export async function DELETE(req: Request) {
   if (!(await isAuthed())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

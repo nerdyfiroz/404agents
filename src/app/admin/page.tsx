@@ -37,6 +37,9 @@ export default function AdminPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskDesc, setNewTaskDesc] = useState("");
   const [newTaskLink, setNewTaskLink] = useState("");
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+  const [editLink, setEditLink] = useState("");
 
   // settings state
   const [settings, setSettings] = useState<Settings>({
@@ -113,8 +116,36 @@ export default function AdminPage() {
     fetchTasks();
   }
 
+  function startEditing(t: Task) {
+    setEditingTaskId(t.id);
+    setEditDesc(t.description);
+    setEditLink(t.link || "");
+  }
+
+  function cancelEditing() {
+    setEditingTaskId(null);
+    setEditDesc("");
+    setEditLink("");
+  }
+
+  async function saveTaskEdit(id: number) {
+    if (!editDesc.trim()) return;
+    await fetch("/api/admin/tasks", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        description: editDesc.trim(),
+        link: editLink.trim() || null,
+      }),
+    });
+    setEditingTaskId(null);
+    fetchTasks();
+  }
+
   async function removeTask(id: number) {
     await fetch(`/api/admin/tasks?id=${id}`, { method: "DELETE" });
+    if (editingTaskId === id) cancelEditing();
     fetchTasks();
   }
 
@@ -353,37 +384,120 @@ export default function AdminPage() {
             <p style={{ color: "var(--color-text-muted)" }}>No custom tasks yet.</p>
           ) : (
             <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
-              {tasks.map((t) => (
-                <li
-                  key={t.id}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "0.75rem 1rem",
-                    background: "var(--color-primary-light)",
-                    borderRadius: 10,
-                    border: "1px solid rgba(255,255,255,.05)",
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                    <span style={{ fontWeight: 600 }}>{t.description}</span>
-                    {t.link && (
-                      <a
-                        href={t.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: "var(--color-accent)", fontSize: "0.82rem", textDecoration: "underline" }}
+              {tasks.map((t) => {
+                const isEditing = editingTaskId === t.id;
+                if (isEditing) {
+                  return (
+                    <li
+                      key={t.id}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "0.6rem",
+                        padding: "0.85rem 1rem",
+                        background: "var(--color-primary-light)",
+                        borderRadius: 10,
+                        border: "1px solid var(--color-accent)",
+                      }}
+                    >
+                      <input
+                        type="text"
+                        value={editDesc}
+                        onChange={(e) => setEditDesc(e.target.value)}
+                        placeholder="Task Description"
+                        style={{
+                          padding: "0.5rem 0.8rem",
+                          borderRadius: 8,
+                          border: "1px solid rgba(255,107,53,.25)",
+                          background: "var(--color-primary)",
+                          color: "var(--color-text)",
+                          fontFamily: "inherit",
+                          fontSize: "0.9rem",
+                        }}
+                      />
+                      <input
+                        type="text"
+                        value={editLink}
+                        onChange={(e) => setEditLink(e.target.value)}
+                        placeholder="Target URL / Link (optional)"
+                        style={{
+                          padding: "0.5rem 0.8rem",
+                          borderRadius: 8,
+                          border: "1px solid rgba(255,107,53,.25)",
+                          background: "var(--color-primary)",
+                          color: "var(--color-text)",
+                          fontFamily: "inherit",
+                          fontSize: "0.9rem",
+                        }}
+                      />
+                      <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+                        <button
+                          className="btn-primary"
+                          onClick={() => saveTaskEdit(t.id)}
+                          style={{ padding: "0.4rem 1rem", fontSize: "0.85rem", borderRadius: 8 }}
+                        >
+                          💾 Save
+                        </button>
+                        <button
+                          onClick={cancelEditing}
+                          style={{
+                            padding: "0.4rem 1rem",
+                            fontSize: "0.85rem",
+                            borderRadius: 8,
+                            background: "transparent",
+                            color: "var(--color-text-muted)",
+                            border: "1px solid rgba(255,255,255,.15)",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </li>
+                  );
+                }
+
+                return (
+                  <li
+                    key={t.id}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      padding: "0.75rem 1rem",
+                      background: "var(--color-primary-light)",
+                      borderRadius: 10,
+                      border: "1px solid rgba(255,255,255,.05)",
+                    }}
+                  >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                      <span style={{ fontWeight: 600 }}>{t.description}</span>
+                      {t.link && (
+                        <a
+                          href={t.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: "var(--color-accent)", fontSize: "0.82rem", textDecoration: "underline" }}
+                        >
+                          🔗 {t.link} ↗
+                        </a>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: "0.5rem" }}>
+                      <button
+                        className="btn-small"
+                        onClick={() => startEditing(t)}
+                        style={{ padding: "0.4rem 0.9rem", fontSize: "0.85rem" }}
                       >
-                        🔗 {t.link} ↗
-                      </a>
-                    )}
-                  </div>
-                  <button className="btn-danger" onClick={() => removeTask(t.id)}>
-                    Remove
-                  </button>
-                </li>
-              ))}
+                        Edit
+                      </button>
+                      <button className="btn-danger" onClick={() => removeTask(t.id)}>
+                        Remove
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
