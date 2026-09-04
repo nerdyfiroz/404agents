@@ -4,10 +4,10 @@ import { verifyPassword, generateAdminToken } from "@/lib/auth";
 export async function POST(req: Request) {
   try {
     const { password } = await req.json();
-    const hash = process.env.ADMIN_PASSWORD_HASH;
+    const hash = process.env.ADMIN_PASSWORD_HASH || process.env.ADMIN_PASSWORD;
 
     if (!hash) {
-      return NextResponse.json({ error: "Admin not configured" }, { status: 500 });
+      return NextResponse.json({ error: "Admin password not configured in environment" }, { status: 500 });
     }
 
     const valid = await verifyPassword(hash, password);

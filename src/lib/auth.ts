@@ -13,10 +13,47 @@ export async function hashPassword(password: string): Promise<string> {
 }
 
 /**
- * Verify a plain password against a bcrypt hash.
+ * Verify a plain password against a bcrypt hash or plain text password.
  */
-export async function verifyPassword(hash: string, password: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+export async function verifyPassword(hashOrPass: string, inputPass: string): Promise<boolean> {
+  if (!hashOrPass || !inputPass) return false;
+
+  let target = hashOrPass.trim();
+  if (
+    (target.startsWith('"') && target.endsWith('"')) ||
+    (target.startsWith("'") && target.endsWith("'"))
+  ) {
+    target = target.slice(1, -1).trim();
+  }
+
+  const input = inputPass.trim();
+
+  // Direct plain text match (if user set plain text password in Vercel env var)
+  if (target === input || hashOrPass === inputPass) {
+    return true;
+  }
+
+  // Bcrypt comparison
+  const isBcrypt =
+    target.startsWith("$2a$") ||
+    target.startsWith("$2b$") ||
+    target.startsWith("$2y$");
+
+  if (isBcrypt) {
+    try {
+      const match = await bcrypt.compare(input, target);
+      if (match) return true;
+      return await bcrypt.compare(inputPass, target);
+    } catch (err) {
+      console.error("bcrypt error:", err);
+    }
+  }
+
+  try {
+    return await bcrypt.compare(input, target);
+  } catch {
+    return false;
+  }
 }
 
 /**
