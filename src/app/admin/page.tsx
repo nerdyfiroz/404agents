@@ -13,6 +13,7 @@ interface WhitelistEntry {
 interface Task {
   id: number;
   description: string;
+  link: string | null;
   created_at: string;
 }
 
@@ -34,7 +35,8 @@ export default function AdminPage() {
 
   // tasks state
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [newTask, setNewTask] = useState("");
+  const [newTaskDesc, setNewTaskDesc] = useState("");
+  const [newTaskLink, setNewTaskLink] = useState("");
 
   // settings state
   const [settings, setSettings] = useState<Settings>({
@@ -43,6 +45,7 @@ export default function AdminPage() {
     whitelist_paused: "false",
   });
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [settingsError, setSettingsError] = useState("");
 
   // ── Login ──
   async function handleLogin(e: React.FormEvent) {
@@ -63,17 +66,17 @@ export default function AdminPage() {
 
   // ── Fetch data ──
   const fetchEntries = useCallback(async () => {
-    const res = await fetch("/api/admin/whitelist");
+    const res = await fetch("/api/admin/whitelist", { cache: "no-store" });
     if (res.ok) setEntries(await res.json());
   }, []);
 
   const fetchTasks = useCallback(async () => {
-    const res = await fetch("/api/admin/tasks");
+    const res = await fetch("/api/admin/tasks", { cache: "no-store" });
     if (res.ok) setTasks(await res.json());
   }, []);
 
   const fetchSettings = useCallback(async () => {
-    const res = await fetch("/api/admin/settings");
+    const res = await fetch("/api/admin/settings", { cache: "no-store" });
     if (res.ok) {
       const data = await res.json();
       setSettings({
@@ -99,13 +102,14 @@ export default function AdminPage() {
   }
 
   async function addTask() {
-    if (!newTask.trim()) return;
+    if (!newTaskDesc.trim()) return;
     await fetch("/api/admin/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ description: newTask }),
+      body: JSON.stringify({ description: newTaskDesc.trim(), link: newTaskLink.trim() || null }),
     });
-    setNewTask("");
+    setNewTaskDesc("");
+    setNewTaskLink("");
     fetchTasks();
   }
 
@@ -115,26 +119,38 @@ export default function AdminPage() {
   }
 
   // ── Settings ──
-  async function saveSetting(key: string, value: string) {
-    await fetch("/api/admin/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key, value }),
-    });
+  async function saveSetting(key: string, value: string): Promise<boolean> {
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
   }
 
   async function saveAllSettings() {
     setSettingsSaved(false);
-    await saveSetting("twitter_follow_link", settings.twitter_follow_link);
-    await saveSetting("tweet_engage_link", settings.tweet_engage_link);
-    setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 3000);
+    setSettingsError("");
+    const r1 = await saveSetting("twitter_follow_link", settings.twitter_follow_link);
+    const r2 = await saveSetting("tweet_engage_link", settings.tweet_engage_link);
+    if (r1 && r2) {
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 3000);
+    } else {
+      setSettingsError("Failed to save settings. Please check backend connection.");
+    }
+    fetchSettings();
   }
 
   async function togglePause() {
     const newValue = settings.whitelist_paused === "true" ? "false" : "true";
     setSettings((s) => ({ ...s, whitelist_paused: newValue }));
     await saveSetting("whitelist_paused", newValue);
+    fetchSettings();
   }
 
   // ── Export CSV ──
@@ -290,18 +306,17 @@ export default function AdminPage() {
         <div className="admin-card">
           <h3>Whitelist Tasks</h3>
           <p style={{ color: "var(--color-text-muted)", marginBottom: "1rem", fontSize: "0.9rem" }}>
-            Add tasks that users must complete to qualify for the whitelist.
+            Add tasks that users must complete to qualify for the whitelist. You can optionally include a target link.
           </p>
 
-          {/* Add task */}
-          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem" }}>
+          {/* Add task with link */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", marginBottom: "1.5rem" }}>
             <input
               type="text"
-              placeholder="New task description…"
-              value={newTask}
-              onChange={(e) => setNewTask(e.target.value)}
+              placeholder="Task Description (e.g. Follow @404Agents on X)"
+              value={newTaskDesc}
+              onChange={(e) => setNewTaskDesc(e.target.value)}
               style={{
-                flex: 1,
                 padding: "0.6rem 1rem",
                 borderRadius: 10,
                 border: "1px solid rgba(255,107,53,.15)",
@@ -311,15 +326,33 @@ export default function AdminPage() {
                 fontSize: "0.9rem",
               }}
             />
-            <button className="btn-small" onClick={addTask}>
-              + Add
-            </button>
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <input
+                type="text"
+                placeholder="Target URL / Link (optional, e.g. https://x.com/404Agents)"
+                value={newTaskLink}
+                onChange={(e) => setNewTaskLink(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: "0.6rem 1rem",
+                  borderRadius: 10,
+                  border: "1px solid rgba(255,107,53,.15)",
+                  background: "var(--color-primary)",
+                  color: "var(--color-text)",
+                  fontFamily: "inherit",
+                  fontSize: "0.9rem",
+                }}
+              />
+              <button className="btn-small" onClick={addTask} style={{ padding: "0.6rem 1.2rem" }}>
+                + Add Task
+              </button>
+            </div>
           </div>
 
           {tasks.length === 0 ? (
-            <p style={{ color: "var(--color-text-muted)" }}>No tasks yet.</p>
+            <p style={{ color: "var(--color-text-muted)" }}>No custom tasks yet.</p>
           ) : (
-            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <ul style={{ listStyle: "none", display: "flex", flexDirection: "column", gap: "0.6rem" }}>
               {tasks.map((t) => (
                 <li
                   key={t.id}
@@ -327,12 +360,25 @@ export default function AdminPage() {
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
-                    padding: "0.7rem 1rem",
+                    padding: "0.75rem 1rem",
                     background: "var(--color-primary-light)",
                     borderRadius: 10,
+                    border: "1px solid rgba(255,255,255,.05)",
                   }}
                 >
-                  <span>{t.description}</span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.2rem" }}>
+                    <span style={{ fontWeight: 600 }}>{t.description}</span>
+                    {t.link && (
+                      <a
+                        href={t.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "var(--color-accent)", fontSize: "0.82rem", textDecoration: "underline" }}
+                      >
+                        🔗 {t.link} ↗
+                      </a>
+                    )}
+                  </div>
                   <button className="btn-danger" onClick={() => removeTask(t.id)}>
                     Remove
                   </button>
@@ -364,7 +410,7 @@ export default function AdminPage() {
                 }
               />
               <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "0.3rem" }}>
-                Users will see: &quot;Follow @handle on X to complete this task&quot;
+                Users will see clickable task box transferring them to this Twitter link.
               </p>
             </div>
 
@@ -380,7 +426,7 @@ export default function AdminPage() {
                 }
               />
               <p style={{ fontSize: "0.8rem", color: "var(--color-text-muted)", marginTop: "0.3rem" }}>
-                Users will see: &quot;Like, Retweet &amp; Comment on this post&quot;
+                Users will see clickable task box for &quot;Like, Retweet &amp; Comment&quot; transferring them to this tweet link.
               </p>
             </div>
 
@@ -390,6 +436,9 @@ export default function AdminPage() {
 
             {settingsSaved && (
               <div className="wl-status success">✅ Settings saved successfully!</div>
+            )}
+            {settingsError && (
+              <div className="wl-status error">❌ {settingsError}</div>
             )}
           </div>
         </div>

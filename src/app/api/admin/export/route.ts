@@ -3,11 +3,18 @@ import { cookies } from "next/headers";
 import { verifyAdminToken } from "@/lib/auth";
 import { getDbPool } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 async function isAuthed(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_token")?.value;
-  if (!token) return false;
-  return !!verifyAdminToken(token);
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get("admin_token")?.value;
+    if (!token) return false;
+    return !!verifyAdminToken(token);
+  } catch {
+    return false;
+  }
 }
 
 // GET /api/admin/export — download whitelist as CSV

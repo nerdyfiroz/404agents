@@ -2,6 +2,12 @@
 
 import { useState, useEffect } from "react";
 
+interface Task {
+  id: number;
+  description: string;
+  link: string | null;
+}
+
 interface Settings {
   twitter_follow_link: string;
   tweet_engage_link: string;
@@ -21,14 +27,23 @@ export default function WhitelistPage() {
     tweet_engage_link: "",
     whitelist_paused: "false",
   });
+  const [tasks, setTasks] = useState<Task[]>([]);
 
-  // Fetch public settings on mount
+  // Fetch public settings & tasks on mount without cache
   useEffect(() => {
-    fetch("/api/settings/public")
+    fetch("/api/settings/public", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
-        setSettings(data);
-        if (data.whitelist_paused === "true") setStatus("paused");
+        const s = data.settings || data;
+        setSettings({
+          twitter_follow_link: s.twitter_follow_link || "",
+          tweet_engage_link: s.tweet_engage_link || "",
+          whitelist_paused: s.whitelist_paused || "false",
+        });
+        if (Array.isArray(data.tasks)) {
+          setTasks(data.tasks);
+        }
+        if (s.whitelist_paused === "true") setStatus("paused");
       })
       .catch(() => {});
   }, []);
@@ -151,6 +166,33 @@ export default function WhitelistPage() {
             disabled={isPaused}
           />
         </div>
+
+        {/* ── Custom Whitelist Tasks Checklist ── */}
+        {tasks.length > 0 && (
+          <div className="form-group" style={{ background: "rgba(255,255,255,.02)", padding: "1rem", borderRadius: 12, border: "1px solid rgba(255,107,53,.15)" }}>
+            <label style={{ fontSize: "0.9rem", color: "var(--color-accent)", fontWeight: 700 }}>
+              📋 Whitelist Tasks Checklist
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginTop: "0.5rem" }}>
+              {tasks.map((t) => (
+                <div key={t.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--color-primary-light)", padding: "0.6rem 0.8rem", borderRadius: 8 }}>
+                  <span style={{ fontSize: "0.88rem" }}>{t.description}</span>
+                  {t.link && (
+                    <a
+                      href={t.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="task-link"
+                      style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem", marginTop: 0 }}
+                    >
+                      Complete Task ↗
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <button
           type="submit"
